@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"log"
-	"os"
 	"time"
 )
 
@@ -20,28 +19,11 @@ var cols = map[string]string{
 	"reset":   "\033[00m",
 }
 
-func logger(userName, msg, col string) []byte {
-	now := time.Now()
-	timeStamp := now.Format("2006-01-02 15:04:05")
-	msg = fmt.Sprintf("[%s][%s]:%s", timeStamp, userName, msg)
-	saveLog(msg)
-	return []byte(col + msg + cols["reset"])
-}
-
 func formatMsg(userName, msg, col string) []byte {
 	now := time.Now()
 	timeStamp := now.Format("2006-01-02 15:04:05")
-	msg = fmt.Sprintf("[%s][%s]:%s", timeStamp, userName, msg)
-	return []byte(col + msg + cols["reset"])
-}
-
-func saveLog(msg string) {
-	file, err := os.OpenFile("log.txt", os.O_TRUNC|os.O_CREATE|os.O_WRONLY, 0o644)
-	check(err)
-	defer file.Close()
-
-	_, err = file.WriteString(msg)
-	check(err)
+	msg = fmt.Sprintf("%s[%s][%s]:%s%s", col, timeStamp, userName, msg, cols["reset"])
+	return []byte(msg)
 }
 
 func check(err error) {

@@ -1,1 +1,10 @@
-[2024-12-18 13:49:14][server]:Listening: :8989
+[38;2;255;255;000m[2024-12-18 19:41:09][server]:Listening on port :2525
+[00m[38;2;255;255;000m[2024-12-18 19:42:20][server]:user1 has joined the chat.
+[00m[38;2;255;255;000m[2024-12-18 19:42:25][server]:user2 has joined the chat.
+[00m[38;2;000;000;255m[2024-12-18 19:42:52][user1]:i am here
+[00m[38;2;000;000;255m[2024-12-18 19:43:14][user1]:what is happening
+[00m[38;2;000;000;255m[2024-12-18 19:43:18][user1]:why are we here
+[00m[38;2;255;255;000m[2024-12-18 19:43:35][server]:user2 has leaved the chat.
+[00m[38;2;255;255;000m[2024-12-18 19:43:41][server]:klo has joined the chat.
+[00m[38;2;255;255;000m[2024-12-18 19:44:57][server]:klo has leaved the chat.
+[00m

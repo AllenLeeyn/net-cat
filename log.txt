@@ -1,8 +1,0 @@
-[38;2;255;255;000m[2024-12-18 20:22:28][server]:Listening on port :2525
-[00m[38;2;255;255;000m[2024-12-18 20:22:35][server]:hej has joined the chat.
-[00m[38;2;000;000;255m[2024-12-18 20:22:37][hej]:i am here
-[00m[38;2;255;255;000m[2024-12-18 20:22:54][server]:öp has joined the chat.
-[00m[38;2;000;000;255m[2024-12-18 20:23:09][öp]:i am here too
-[00m[38;2;255;255;000m[2024-12-18 20:23:13][server]:öp has leaved the chat.
-[00m[38;2;255;255;000m[2024-12-18 20:23:14][server]:hej has leaved the chat.
-[00m

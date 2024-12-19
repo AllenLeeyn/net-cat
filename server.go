@@ -7,33 +7,31 @@ import (
 	"os"
 )
 
-const maxConn = 2
+const maxConn = 1
 
 type server struct {
 	clients   []*client
-	msgQueue  chan message
 	log       *os.File
+	logQueue  chan message
 	history   [][]byte
+	msgQueue  chan message
 	joinQueue chan *client
 	exitQueue chan *client
-	shutdown  chan struct{}
-}
-
-type message struct {
-	from string
-	body []byte
 }
 
 func (s *server) start(portNum string) {
-	server, err := net.Listen("tcp4", portNum)
+	server, err := net.Listen("tcp", portNum)
 	check(err)
+	defer server.Close()
 
-	file, err := os.OpenFile("log.txt", os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o644)
+	fileName := fmt.Sprintf("sys@%s-[%s].log", portNum, getTimeStamp())
+	file, err := os.OpenFile(fileName, os.O_CREATE|os.O_WRONLY, 0o644)
 	check(err)
 	s.log = file
 	defer file.Close()
 
-	s.msgQueue <- message{from: "server", body: []byte("Listening on port " + portNum + "\n")}
+	s.logQueue <- message{from: "server", body: []byte("Listening on port " + portNum)}
+
 	go s.listener()
 	go s.broadcaster()
 
@@ -41,25 +39,27 @@ func (s *server) start(portNum string) {
 		conn, err := server.Accept()
 		if err != nil {
 			conn.Close()
-			continue
 		}
 		go s.handlerConnection(conn)
-	}
 
-	//<-s.shutdown
+	}
 }
 
 func (s *server) handlerConnection(conn net.Conn) {
-	cl := &client{conn: conn}
+	s.logQueue <- message{from: "server",
+		body: []byte("connecting " + conn.RemoteAddr().String())}
 
+	cl := &client{conn: conn}
 	s.addClient(cl)
+
 	scanner := bufio.NewScanner(cl.conn)
 	for scanner.Scan() {
 		if scanner.Err() != nil {
 			break
 		}
-		msg := message{from: cl.name, body: []byte(scanner.Text() + "\n")}
-		s.msgQueue <- msg
+		if isValidEntry(scanner.Text()) {
+			s.msgQueue <- message{from: cl.name, body: []byte(scanner.Text())}
+		}
 	}
 	s.exitQueue <- cl
 }
@@ -67,20 +67,26 @@ func (s *server) handlerConnection(conn net.Conn) {
 func (s *server) listener() {
 	for {
 		select {
+		case msg := <-s.logQueue:
+			msgPretty := formatMsg(getTimeStamp(), msg, "")
+			_, err := s.log.Write(msgPretty)
+			check(err)
+			fmt.Print(string(msgPretty))
+
 		case cl := <-s.joinQueue:
+			if len(s.clients) >= maxConn {
+				s.logQueue <- message{from: "server",
+					body: []byte("Server full. Unable to connect " + cl.conn.RemoteAddr().String())}
+				cl.conn.Write([]byte("Server full. Try again later.\n"))
+				cl.conn.Close()
+				continue
+			}
 			s.clients = append(s.clients, cl)
-			s.getHistory(cl)
+			s.msgQueue <- message{from: "server",
+				body: []byte(cl.name + " has joined the chat.")}
+
 		case cl := <-s.exitQueue:
 			s.removeClient(cl)
-		}
-	}
-}
-
-func (s *server) getHistory(cl *client) {
-	for _, msg := range s.history {
-		_, err := cl.conn.Write(msg)
-		if err != nil {
-			break
 		}
 	}
 }
@@ -88,28 +94,23 @@ func (s *server) getHistory(cl *client) {
 func (s *server) broadcaster() {
 	for {
 		msg := <-s.msgQueue
-		col := cols["yellow"]
-		if msg.from != "server" {
-			col = cols["blue"]
-		}
-		msgPretty := formatMsg(msg.from, string(msg.body), col)
+		timeStamp := getTimeStamp()
+		color := getMsgColor(msg)
+		msgPretty := formatMsg(timeStamp, msg, color)
 
-		_, err := s.log.Write(msgPretty)
-		check(err)
+		s.logQueue <- msg
 		s.history = append(s.history, msgPretty)
-
-		fmt.Print(string(msgPretty))
 
 		for _, cl := range s.clients {
 			if msg.from == cl.name {
-				msgPretty = formatMsg(msg.from, string(msg.body), cols["green"])
+				msgPretty = formatMsg(timeStamp, msg, "green")
 			}
 			_, err := cl.conn.Write(msgPretty)
 			if err != nil {
 				return
 			}
 			if msg.from == cl.name {
-				msgPretty = formatMsg(msg.from, string(msg.body), col)
+				msgPretty = formatMsg(timeStamp, msg, color)
 			}
 		}
 	}

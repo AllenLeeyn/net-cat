@@ -19,6 +19,9 @@ type server struct {
 	exitQueue chan *client
 }
 
+// s.start() starts the TCP server, open log file and accept in coming connections.
+// It starts the s.listener and s.broadcaster as go routines.
+// For each connection, a go s.handleConnection routine is started.
 func (s *server) start(portNum string) {
 	server, err := net.Listen("tcp", portNum)
 	check(err)
@@ -41,10 +44,12 @@ func (s *server) start(portNum string) {
 			conn.Close()
 		}
 		go s.handlerConnection(conn)
-
 	}
 }
 
+// s.handleConnection() tries to addClient and listen for incoming messages.
+// If addClient fails, the conn will be close and an error will occur here.
+// Incoming messages are written to the s.msgQueue.
 func (s *server) handlerConnection(conn net.Conn) {
 	s.logQueue <- message{from: "server",
 		body: []byte("connecting " + conn.RemoteAddr().String())}
@@ -64,6 +69,7 @@ func (s *server) handlerConnection(conn net.Conn) {
 	s.exitQueue <- cl
 }
 
+// s.listenser() listens to acitivity on s.logQueue, s.joinQueue and s.exitQueue and handles them.
 func (s *server) listener() {
 	for {
 		select {
@@ -91,6 +97,8 @@ func (s *server) listener() {
 	}
 }
 
+// s.broadcaster() grabs msg from msgQueue (if any).
+// The msg will be logged, save history, and send to all client.
 func (s *server) broadcaster() {
 	for {
 		msg := <-s.msgQueue
@@ -113,5 +121,6 @@ func (s *server) broadcaster() {
 				msgPretty = formatMsg(timeStamp, msg, color)
 			}
 		}
+
 	}
 }

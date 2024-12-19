@@ -23,7 +23,6 @@ func main() {
 	default:
 		fmt.Println("[USAGE]: ./TCPChat $port")
 	}
-	fmt.Print("here")
 }
 
 func check(err error) {

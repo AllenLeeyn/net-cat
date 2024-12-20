@@ -23,8 +23,7 @@ const welcomeMsg = `Welcome to TCP-Chat!
 |    ` + "`.       | `' \\Zq\n" +
 	"_)      \\.___.,|     .'\n" +
 	"\\____   )MMMMMP|   .'\n" +
-	"     `-'       `--'\n" +
-	"[ENTER YOUR NAME]:"
+	"     `-'       `--'\n"
 
 type client struct {
 	conn  net.Conn
@@ -37,23 +36,42 @@ type client struct {
 func (s *server) processClient(cl *client) {
 	_, err := cl.conn.Write([]byte(welcomeMsg))
 	if err == nil {
-
-		scanner := bufio.NewScanner(cl.conn)
-		for scanner.Scan() {
-			cl.name = strings.TrimSpace(scanner.Text())
-			if cl.name == "" || !isValidEntry(cl.name) || s.isNameTaken(cl.name) {
-				cl.conn.Write([]byte("Invalid entry/ name taken. Try again: "))
-				continue
-			}
-			s.logQueue <- message{from: s.self,
-				body: []byte(cl.conn.RemoteAddr().String() + " set name to " + cl.name)}
-			s.joinQueue <- cl
+		if s.setClientName(cl) {
 			return
 		}
 	}
 	s.logQueue <- message{from: s.self,
 		body: []byte("Unable to connect " + cl.conn.RemoteAddr().String())}
 	cl.conn.Close()
+}
+
+func (s *server) setClientName(cl *client) bool {
+	_, err := cl.conn.Write([]byte("[ENTER YOUR NAME]:"))
+	if err == nil {
+		oldName := cl.name
+		cl.name = ""
+
+		scanner := bufio.NewScanner(cl.conn)
+		for scanner.Scan() {
+			newName := strings.TrimSpace(scanner.Text())
+			if newName == "" || !isValidEntry(newName) || s.isNameTaken(newName) {
+				cl.conn.Write([]byte("Invalid entry/ name taken. Try again: "))
+				continue
+			}
+			cl.name = newName
+			s.logQueue <- message{from: s.self,
+				body: []byte(cl.conn.RemoteAddr().String() + " set name to " + cl.name)}
+
+			if oldName == "" {
+				s.joinQueue <- cl
+			} else {
+				s.msgQueue <- message{from: cl,
+					body: []byte(oldName + " changed name to " + cl.name)}
+			}
+			return true
+		}
+	}
+	return false
 }
 
 // s.isNameTaken() checks if requested name is used by any registered clients.

@@ -37,7 +37,7 @@ func (s *server) start(portNum string) {
 	s.log = file
 	defer file.Close()
 
-	s.self = &client{name: "server", color: colors[time.Now().Second()%12]}
+	s.self = &client{name: "server", color: "\033[7m" + colors[time.Now().Second()%12]}
 	s.logQueue <- message{from: s.self, body: []byte("Listening on port " + portNum)}
 
 	go s.listener()
@@ -59,7 +59,7 @@ func (s *server) handlerConnection(conn net.Conn) {
 	s.logQueue <- message{from: s.self,
 		body: []byte("connecting " + conn.RemoteAddr().String())}
 
-	cl := &client{conn: conn, color: colors[time.Now().Second()%16]}
+	cl := &client{conn: conn, color: colors[time.Now().Second()%12]}
 	s.processClient(cl)
 
 	scanner := bufio.NewScanner(cl.conn)
@@ -67,9 +67,23 @@ func (s *server) handlerConnection(conn net.Conn) {
 		if scanner.Err() != nil {
 			break
 		}
-		if isValidEntry(scanner.Text()) {
-			s.msgQueue <- message{from: cl, body: []byte(scanner.Text())}
+		if !isValidEntry(scanner.Text()) {
+			continue
 		}
+		if scanner.Text() == "--rename" {
+			if !s.setClientName(cl) {
+				break
+			}
+			continue
+		}
+		if scanner.Text() == "--recolor" {
+			oldColor := cl.color
+			cl.color = colors[time.Now().Second()%12]
+			s.msgQueue <- message{from: cl,
+				body: []byte(cl.name + " changed color from " + oldColor + "this " + cl.color + "to this")}
+			continue
+		}
+		s.msgQueue <- message{from: cl, body: []byte(scanner.Text())}
 	}
 	s.exitQueue <- cl
 }
@@ -120,6 +134,9 @@ func (s *server) broadcaster() {
 		s.history = append(s.history, msgPretty)
 
 		for _, cl := range s.clients {
+			if cl.name == msg.from.name {
+				msgPretty = []byte("\033[1m" + string(msgPretty) + "\033[0m")
+			}
 			_, err := cl.conn.Write(msgPretty)
 			if err != nil {
 				cl.conn.Close()

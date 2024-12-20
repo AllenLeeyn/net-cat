@@ -48,7 +48,7 @@ func isValidEntry(entry string) bool {
 		return false
 	}
 	for _, rn := range entry {
-		if !(rn >= 32 || rn <= 126 ||
+		if !((rn >= 32 && rn <= 126) ||
 			rn == 'å' || rn == 'ä' || rn == 'ö' ||
 			rn == 'Å' || rn == 'Ä' || rn == 'Ö') {
 			return false

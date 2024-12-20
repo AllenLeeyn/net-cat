@@ -27,13 +27,17 @@ const welcomeMsg = `Welcome to TCP-Chat!
 	"[ENTER YOUR NAME]:"
 
 type client struct {
-	conn net.Conn
-	name string
+	conn  net.Conn
+	name  string
+	color string
 }
 
-func (s *server) addClient(cl *client) {
+// s.processClient() sends a welcome message and checks if name is valid
+// before adding connecting client to s.joinQueue.
+func (s *server) processClient(cl *client) {
 	_, err := cl.conn.Write([]byte(welcomeMsg))
 	if err == nil {
+
 		scanner := bufio.NewScanner(cl.conn)
 		for scanner.Scan() {
 			cl.name = strings.TrimSpace(scanner.Text())
@@ -41,34 +45,18 @@ func (s *server) addClient(cl *client) {
 				cl.conn.Write([]byte("Invalid entry/ name taken. Try again: "))
 				continue
 			}
-			if err := s.printHistory(cl); err != nil {
-				break
-			}
-			s.logQueue <- message{from: "server",
+			s.logQueue <- message{from: s.self,
 				body: []byte(cl.conn.RemoteAddr().String() + " set name to " + cl.name)}
 			s.joinQueue <- cl
 			return
 		}
 	}
-	s.logQueue <- message{from: "server",
+	s.logQueue <- message{from: s.self,
 		body: []byte("Unable to connect " + cl.conn.RemoteAddr().String())}
 	cl.conn.Close()
 }
 
-func isValidEntry(entry string) bool {
-	if len(entry) == 0 {
-		return false
-	}
-	for _, rn := range entry {
-		if !(rn >= 32 || rn <= 126 ||
-			rn == 'å' || rn == 'ä' || rn == 'ö' ||
-			rn == 'Å' || rn == 'Ä' || rn == 'Ö') {
-			return false
-		}
-	}
-	return true
-}
-
+// s.isNameTaken() checks if requested name is used by any registered clients.
 func (s *server) isNameTaken(name string) bool {
 	for _, cl := range s.clients {
 		if cl.name == name {
@@ -78,6 +66,7 @@ func (s *server) isNameTaken(name string) bool {
 	return false
 }
 
+// s.printHistory() prints history to the new client.
 func (s *server) printHistory(cl *client) error {
 	for _, msg := range s.history {
 		_, err := cl.conn.Write(msg)
@@ -88,15 +77,17 @@ func (s *server) printHistory(cl *client) error {
 	return nil
 }
 
+// s.removeClient() removes client from the client list,
+// add exit message to s,msgQueue, logs activity and close conn.
 func (s *server) removeClient(cl *client) {
 	for i, c := range s.clients {
 		if cl == c {
 			s.clients = append(s.clients[:i], s.clients[i+1:]...)
-			s.msgQueue <- message{from: "server",
+			s.msgQueue <- message{from: s.self,
 				body: []byte(cl.name + " has left the chat.")}
 		}
 	}
-	s.logQueue <- message{from: "server",
+	s.logQueue <- message{from: s.self,
 		body: []byte("Close connection with " + cl.conn.RemoteAddr().String())}
 	cl.conn.Close()
 }

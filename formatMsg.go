@@ -5,39 +5,54 @@ import (
 	"time"
 )
 
-var colors = map[string]string{
-	"black":   "\033[30m",
-	"red":     "\033[31m",
-	"green":   "\033[32m",
-	"yellow":  "\033[33m",
-	"blue":    "\033[34m",
-	"magenta": "\033[35m",
-	"cyan":    "\033[36m",
-	"white":   "\033[37m",
-	"reset":   "\033[00m",
+const resetColor = "\033[00m"
+
+var colors = []string{
+	"\033[31m", //red
+	"\033[32m", //green
+	"\033[33m", //yellow
+	"\033[34m", //blue
+	"\033[35m", //magenta
+	"\033[36m", //cyan
+	"\033[91m", //high intense red
+	"\033[92m", //high intense green
+	"\033[93m", //high intense yellow
+	"\033[94m", //high intense blue
+	"\033[95m", //high intense magenta
+	"\033[96m", //high intense cyan
 }
 
 type message struct {
-	from string
+	from *client
 	body []byte
 }
 
+// getTimeStamp() gets current timestamp
 func getTimeStamp() string {
 	now := time.Now()
 	return now.Format("2006-01-02 15:04:05")
 }
 
-func getMsgColor(msg message) string {
-	color := "yellow"
-	if msg.from != "server" {
-		color = "blue"
-	}
-	return color
-}
-
-func formatMsg(timeStamp string, msg message, color string) []byte {
+// formatMsg() format messages with timestamp and sender
+func formatMsg(msg message) []byte {
+	timeStamp := getTimeStamp()
 	msgPretty := fmt.Sprintf("%s[%s][%s]:%s%s\n",
-		colors[color], timeStamp, msg.from, msg.body, colors["reset"])
+		msg.from.color, timeStamp, msg.from.name, msg.body, resetColor)
 
 	return []byte(msgPretty)
+}
+
+// isValidEntry() checks if entry is printable ascii and åäö
+func isValidEntry(entry string) bool {
+	if len(entry) == 0 {
+		return false
+	}
+	for _, rn := range entry {
+		if !(rn >= 32 || rn <= 126 ||
+			rn == 'å' || rn == 'ä' || rn == 'ö' ||
+			rn == 'Å' || rn == 'Ä' || rn == 'Ö') {
+			return false
+		}
+	}
+	return true
 }

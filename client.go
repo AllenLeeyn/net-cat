@@ -103,6 +103,7 @@ func (s *server) removeClient(cl *client) {
 			s.clients = append(s.clients[:i], s.clients[i+1:]...)
 			s.msgQueue <- message{from: s.self,
 				body: []byte(cl.name + " has left the chat.")}
+			break
 		}
 	}
 	s.logQueue <- message{from: s.self,

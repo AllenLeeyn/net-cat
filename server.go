@@ -19,6 +19,7 @@ type server struct {
 	msgQueue  chan message
 	joinQueue chan *client
 	exitQueue chan *client
+	shutdown  chan struct{}
 }
 
 // s.start() starts listening for request at portNum,
@@ -35,7 +36,6 @@ func (s *server) start(portNum string) {
 	file, err := os.OpenFile(fileName, os.O_CREATE|os.O_WRONLY, 0o644)
 	check(err)
 	s.log = file
-	defer file.Close()
 
 	s.self = &client{name: "server", color: "\033[7m" + colors[time.Now().Second()%12]}
 	s.logQueue <- message{from: s.self, body: []byte("Listening on port " + portNum)}
@@ -43,13 +43,43 @@ func (s *server) start(portNum string) {
 	go s.listener()
 	go s.broadcaster()
 
-	for {
-		conn, err := server.Accept()
-		if err != nil {
-			conn.Close()
+	// make server.Accept() as a go rountine.
+	// Here if an error occurs (regardless of client or server side),
+	// the program just exits the go routine
+	go func() {
+		for {
+			conn, err := server.Accept()
+			if err != nil {
+				fmt.Println("Exiting server connector...")
+				break
+			}
+			go s.handlerConnection(conn)
 		}
-		go s.handlerConnection(conn)
+		fmt.Print()
+	}()
+
+	// implement shutdown listener
+	fmt.Println("Enter 'quit' to shutdown")
+	scanner := bufio.NewScanner(os.Stdin)
+	for scanner.Scan() {
+		if scanner.Err() != nil || scanner.Text() == "quit" {
+			break
+		}
 	}
+	s.stop()
+}
+
+// s.stop() annouces shutdown and close all connection and exit go routines
+func (s *server) stop() {
+	s.msgQueue <- message{from: s.self,
+		body: []byte("Server shutting down...")}
+	time.Sleep(1 * time.Second) // wait for message to be send
+	for _, cl := range s.clients {
+		cl.conn.Close()
+	}
+	s.msgQueue <- message{body: []byte("\033exit")}
+	s.shutdown <- struct{}{}
+	s.log.Close()
 }
 
 // s.handleConnection() tries to processClient() and Scan() for incoming messages.
@@ -92,6 +122,11 @@ func (s *server) handlerConnection(conn net.Conn) {
 func (s *server) listener() {
 	for {
 		select {
+		// implement exit for listener
+		case <-s.shutdown:
+			fmt.Println("Exiting server listener...")
+			return
+
 		case msg := <-s.logQueue:
 			msgPretty := formatMsg(msg)
 			_, err := s.log.Write(msgPretty)
@@ -128,6 +163,12 @@ func (s *server) listener() {
 func (s *server) broadcaster() {
 	for {
 		msg := <-s.msgQueue
+
+		// implement exit for broadcaster
+		if string(msg.body) == "\033exit" {
+			break
+		}
+
 		msgPretty := formatMsg(msg)
 
 		s.logQueue <- msg
@@ -142,6 +183,6 @@ func (s *server) broadcaster() {
 				cl.conn.Close()
 			}
 		}
-
 	}
+	fmt.Println("Exiting server broadcastor...")
 }

@@ -27,15 +27,10 @@ type message struct {
 	body []byte
 }
 
-// getTimeStamp() gets current timestamp
-func getTimeStamp() string {
-	now := time.Now()
-	return now.Format("2006-01-02 15:04:05")
-}
-
 // formatMsg() format messages with timestamp and sender
 func formatMsg(msg message) []byte {
-	timeStamp := getTimeStamp()
+	now := time.Now()
+	timeStamp := now.Format("2006-01-02 15:04:05")
 	msgPretty := fmt.Sprintf("%s[%s][%s]:%s%s\n",
 		msg.from.color, timeStamp, msg.from.name, msg.body, resetColor)
 
